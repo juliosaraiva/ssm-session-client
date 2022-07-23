@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/mmmorris1975/ssm-session-client/datachannel"
+	"github.com/juliosaraiva/ssm-session-client/datachannel"
 	"io"
 	"log"
 	"os"

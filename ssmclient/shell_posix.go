@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/mmmorris1975/ssm-session-client/datachannel"
+	"github.com/juliosaraiva/ssm-session-client/datachannel"
 	"golang.org/x/sys/unix"
 )
 

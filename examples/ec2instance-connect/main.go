@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2instanceconnect"
-	"github.com/mmmorris1975/ssm-session-client/ssmclient"
+	"github.com/juliosaraiva/ssm-session-client/ssmclient"
 	"log"
 	"net"
 	"os"

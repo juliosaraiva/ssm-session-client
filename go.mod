@@ -1,4 +1,4 @@
-module github.com/mmmorris1975/ssm-session-client
+module github.com/juliosaraiva/ssm-session-client
 
 go 1.15
 
