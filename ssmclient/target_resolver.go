@@ -3,13 +3,13 @@ package ssmclient
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net"
+	"fmt"
 	"regexp"
 	"strings"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
@@ -36,15 +36,15 @@ type TargetResolver interface {
 }
 
 // ResolveTarget attempts to find the instance ID of the target using a pre-defined resolution order.
-// The first check will see if the target is already in the format of an EC2 instance ID.  Next, if
-// the cfg parameter is not nil, checking by EC2 instance tags or private IPv4 IP address is performed.
+// The first check will see if the target is already in the format of an EC2 instance ID.
+// Next, if the cfg parameter is not nil, checking by EC2 instance tags or private IPv4 IP address is performed.
 // Finally, resolving by DNS TXT record will be attempted.
 func ResolveTarget(target string, cfg aws.Config) (string, error) {
 	resolvers := []TargetResolver{
 		NewTagResolver(cfg),
 		NewIPResolver(cfg),
 	}
-
+	
 	return ResolveTargetChain(strings.TrimSpace(target), append(resolvers, NewDNSResolver())...)
 }
 
@@ -58,11 +58,11 @@ func ResolveTargetChain(target string, resolvers ...TargetResolver) (inst string
 	if err != nil {
 		return "", err
 	}
-
+	
 	if matched {
 		return target, nil
 	}
-
+	
 	for _, res := range resolvers {
 		inst, err = res.Resolve(target)
 		if err != nil {
@@ -70,6 +70,7 @@ func ResolveTargetChain(target string, resolvers ...TargetResolver) (inst string
 		}
 		return inst, nil
 	}
+
 	return "", ErrNoInstanceFound
 }
 
@@ -132,6 +133,7 @@ func (r *TagResolver) Resolve(target string) (string, error) {
 		Name:   aws.String(fmt.Sprintf(`tag:%s`, spec[0])),
 		Values: []string{spec[1]},
 	}
+
 	return r.EC2Resolver.Resolve(f)
 }
 
@@ -214,12 +216,19 @@ type EC2Resolver struct {
 
 func (r *EC2Resolver) Resolve(filter ...types.Filter) (string, error) {
 	filter = append(filter, types.Filter{Name: aws.String("instance-state-name"), Values: []string{"running"}})
-	o, err := ec2.NewFromConfig(r.cfg).DescribeInstances(context.Background(), &ec2.DescribeInstancesInput{Filters: filter})
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
+		panic("configuration error, " + err.Error())
+	}
+
+	result, err := ec2.NewFromConfig(cfg).DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{Filters: filter})
+	if err != nil {
+		fmt.Println("Got an error retrieving information about your Amazon EC2 instance:")
+		fmt.Println(err)
 		return "", err
 	}
 
-	for _, res := range o.Reservations {
+	for _, res := range result.Reservations {
 		if len(res.Instances) > 0 {
 			if len(res.Instances) > 1 {
 				log.Print("WARNING: more than 1 instance found, using 1st value")

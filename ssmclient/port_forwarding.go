@@ -1,17 +1,20 @@
 package ssmclient
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/juliosaraiva/ssm-session-client/datachannel"
-	"golang.org/x/net/netutil"
+	"os"
 	"io"
 	"log"
 	"net"
-	"os"
-	"os/signal"
-	"strconv"
+	"fmt"
 	"syscall"
+	"strconv"
+	"context"
+	"os/signal"
+	"golang.org/x/net/netutil"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/juliosaraiva/ssm-session-client/datachannel"
 )
 
 // PortForwardingInput configures the port forwarding session parameters.
@@ -29,10 +32,15 @@ type PortForwardingInput struct {
 // API, which is used as part of establishing the websocket communication channel.
 //nolint:funlen,gocognit // it's long, but not overly hard to read despite what the gocognit says
 func PortForwardingSession(cfg aws.Config, opts *PortForwardingInput) error {
-	c, err := openDataChannel(cfg, opts)
+	config, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		panic("configuration error, " + err.Error())
+	}
+	c, err := openDataChannel(config, opts)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		// Both the basic and muxing plugins support TerminateSession on the agent side.
 		_ = c.TerminateSession()
@@ -53,6 +61,7 @@ func PortForwardingSession(cfg aws.Config, opts *PortForwardingInput) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println(lsnr)
 	defer lsnr.Close()
 	log.Printf("listening on %s", lsnr.Addr())
 
@@ -117,6 +126,10 @@ outer:
 }
 
 func openDataChannel(cfg aws.Config, opts *PortForwardingInput) (*datachannel.SsmDataChannel, error) {
+	config, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		panic("configuration error, " + err.Error())
+	}
 	in := &ssm.StartSessionInput{
 		DocumentName: aws.String("AWS-StartPortForwardingSession"),
 		Target:       aws.String(opts.Target),
@@ -127,7 +140,7 @@ func openDataChannel(cfg aws.Config, opts *PortForwardingInput) (*datachannel.Ss
 	}
 
 	c := new(datachannel.SsmDataChannel)
-	if err := c.Open(cfg, in); err != nil {
+	if err := c.Open(config, in); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -166,7 +179,7 @@ func messageChannel(c datachannel.DataChannel, errCh chan error) chan []byte {
 }
 
 func createListener(port int) (net.Listener, error) {
-	l, err := net.Listen("tcp", net.JoinHostPort("", strconv.Itoa(port)))
+	l, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		return nil, err
 	}
